@@ -34,6 +34,7 @@ jobs:
           cp -r .next/standalone/. deploy/
           cp -r .next/static deploy/.next/static
           cp -r public deploy/public
+          cp ecosystem.config.cjs deploy/
 
       - name: Copy files to VM
         uses: appleboy/scp-action@v0.1.7
@@ -54,8 +55,26 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
+            set -euo pipefail
+
+            # Non-interactive SSH skips .bashrc, so nvm/fnm/npm-global bins are missing from PATH.
+            export NVM_DIR="${HOME}/.nvm"
+            if [ -s "${NVM_DIR}/nvm.sh" ]; then
+              . "${NVM_DIR}/nvm.sh"
+            fi
+            if command -v fnm >/dev/null 2>&1; then
+              eval "$(fnm env)"
+            fi
+            export PATH="${HOME}/.npm-global/bin:/usr/local/bin:${PATH}"
+
+            if ! command -v pm2 >/dev/null 2>&1; then
+              echo "pm2 not found. On the VM run: npm install -g pm2"
+              exit 1
+            fi
+
             RELEASE="/home/ubuntu/website/releases/${{ github.sha }}"
             ln -sfn "$RELEASE" /home/ubuntu/website/current
+            cp "$RELEASE/ecosystem.config.cjs" /home/ubuntu/website/ecosystem.config.cjs
             pm2 startOrReload /home/ubuntu/website/ecosystem.config.cjs
             pm2 save
             cd /home/ubuntu/website/releases && ls -t | tail -n +4 | xargs -r rm -rf
