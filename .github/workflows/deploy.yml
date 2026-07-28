@@ -31,7 +31,7 @@ jobs:
       - name: Prepare deploy bundle
         run: |
           mkdir deploy
-          cp -r .next/standalone/* deploy/
+          cp -r .next/standalone/. deploy/
           cp -r .next/static deploy/.next/static
           cp -r public deploy/public
 
